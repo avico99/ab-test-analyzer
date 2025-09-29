@@ -116,24 +116,32 @@
                 const lines = csvText.trim().split(/\r\n|\n/);
                 const config = {};
                 const dataRows = [];
-                let isConfigSection = true;
 
-                for (const line of lines) {
-                    if (line.trim() === '') {
-                        isConfigSection = false;
-                        continue;
-                    }
-                    if (isConfigSection) {
-                        const firstCommaIndex = line.indexOf(',');
-                        if (firstCommaIndex !== -1) {
-                            const key = line.substring(0, firstCommaIndex).trim().replace(/[^\x20-\x7E]/g, '');
-                            const value = line.substring(firstCommaIndex + 1).trim().replace(/"/g, '');
-                            if (key) { // Ensure the key is not empty after cleaning
-                                config[key] = value;
-                            }
+                const headerRowIndex = lines.findIndex(line => line.split(',')[0].trim().toLowerCase() === 'group');
+
+                if (headerRowIndex === -1) {
+                    throw new Error('Could not find the data header row starting with "Group". Please check your sheet format.');
+                }
+
+                // Process config lines (everything before the header)
+                const configLines = lines.slice(0, headerRowIndex);
+                for (const line of configLines) {
+                    if (line.trim() === '') continue; // Skip blank lines
+                    const firstCommaIndex = line.indexOf(',');
+                    if (firstCommaIndex !== -1) {
+                        const key = line.substring(0, firstCommaIndex).trim().replace(/[^\x20-\x7E]/g, '');
+                        const value = line.substring(firstCommaIndex + 1).trim().replace(/^"|"$/g, '').replace(/[^\x20-\x7E]/g, '');
+                        if (key) {
+                            config[key] = value;
                         }
-                    } else if (line.split(',')[0].trim().toLowerCase() !== 'group') {
-                        dataRows.push(line.split(','));
+                    }
+                }
+
+                // Process data rows (everything after the header)
+                const rawDataRows = lines.slice(headerRowIndex + 1);
+                for (const line of rawDataRows) {
+                    if (line.trim()) { // Only process non-empty lines
+                         dataRows.push(line.split(','));
                     }
                 }
 
@@ -143,7 +151,7 @@
                     if (!config[key]) throw new Error(`Missing required configuration parameter in sheet: ${key}`);
                 });
                 if (!['Performance Improvement', 'Technical Change'].includes(config.Test_Type)) {
-                     throw new Error(`Test_Type must be 'Performance Improvement' or 'Technical Change'.`);
+                     throw new Error(`Test_Type must be 'Performance Improvement' or 'Technical Change'. Value found: "${config.Test_Type}"`);
                 }
                 if (dataRows.length < 2) throw new Error('Could not find sufficient data rows in the sheet.');
 
@@ -212,25 +220,25 @@
                 const t_num = treatmentData[metric.numerator];
                 const t_den = treatmentData[metric.denominator];
                 
-                const controlVal = (c_num / c_den) * (metric.multiplier || 1);
-                const treatmentVal = (t_num / t_den) * (metric.multiplier || 1);
+                const controlVal = (c_den === 0) ? 0 : (c_num / c_den) * (metric.multiplier || 1);
+                const treatmentVal = (t_den === 0) ? 0 : (t_num / t_den) * (metric.multiplier || 1);
                 const lift = controlVal === 0 ? Infinity : (treatmentVal - controlVal) / controlVal;
                 
                 let pValue, ci;
 
                 if (metric.isRate) { // Two-proportion z-test for rates
-                    const p1 = c_num / c_den;
-                    const p2 = t_num / t_den;
-                    const p_pooled = (c_num + t_num) / (c_den + t_den);
-                    const se = Math.sqrt(p_pooled * (1 - p_pooled) * (1/c_den + 1/t_den));
+                    const p1 = (c_den === 0) ? 0 : c_num / c_den;
+                    const p2 = (t_den === 0) ? 0 : t_num / t_den;
+                    const p_pooled = (c_den + t_den === 0) ? 0 : (c_num + t_num) / (c_den + t_den);
+                    const se = (p_pooled === 0 || p_pooled === 1) ? 0 : Math.sqrt(p_pooled * (1 - p_pooled) * (1/c_den + 1/t_den));
                     const zStat = se === 0 ? 0 : (p2 - p1) / se;
                     pValue = 2 * (1 - standardNormalCdf(Math.abs(zStat)));
                     
-                    const marginOfError = 1.96 * Math.sqrt((p1 * (1 - p1) / c_den) + (p2 * (1 - p2) / t_den));
+                    const marginOfError = 1.96 * Math.sqrt(((p1 * (1 - p1)) / c_den) + ((p2 * (1 - p2)) / t_den));
                     ci = p1 === 0 ? [0,0] : [(p2 - p1 - marginOfError) / p1, (p2 - p1 + marginOfError) / p1];
                 } else { // Z-test for difference of ratios (Delta method approximation)
-                    const se_control = controlVal === 0 ? 0 : (controlVal / Math.sqrt(c_num));
-                    const se_treatment = treatmentVal === 0 ? 0 : (treatmentVal / Math.sqrt(t_num));
+                    const se_control = (controlVal === 0 || c_num === 0) ? 0 : (controlVal / Math.sqrt(c_num));
+                    const se_treatment = (treatmentVal === 0 || t_num === 0) ? 0 : (treatmentVal / Math.sqrt(t_num));
                     const se_diff = Math.sqrt(se_control*se_control + se_treatment*se_treatment);
                     const zStat = se_diff === 0 ? 0 : (treatmentVal - controlVal) / se_diff;
                     pValue = 2 * (1 - standardNormalCdf(Math.abs(zStat)));

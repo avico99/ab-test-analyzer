@@ -135,13 +135,17 @@
                                 console.log(`Config: "${key}" = "${value}"`);
                             }
                         }
-                    } else if (line.split(',')[0].trim().toLowerCase() !== 'group') {
-                        dataRows.push(line.split(','));
+                    } else {
+                        const firstCell = line.split(',')[0].trim().toLowerCase();
+                        if (firstCell && firstCell !== 'group') {
+                            dataRows.push(line.split(','));
+                        }
                     }
                 }
 
                 console.log('Parsed config:', config);
                 console.log('Data rows found:', dataRows.length);
+                console.log('Data rows:', dataRows);
 
                 const requiredConfig = ['Test_Name', 'Test_Type', 'Control_Group_Name', 'Test_Group_Name', 'Expected_Control_Split', 'Guardrail_Threshold'];
                 requiredConfig.forEach(key => {

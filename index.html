@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A/B Test Analysis App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0c0a09;
+            background-image: radial-gradient(circle at 1px 1px, #1c1917 1px, transparent 0);
+            background-size: 25px 25px;
+        }
+        .main-card {
+            background: rgba(23, 23, 23, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-left-color: #60a5fa;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-gray-200">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
+        <header class="text-center mb-12">
+            <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-600">A/B Test Analysis App</h1>
+            <p class="text-lg text-gray-400 mt-3">Automated analysis from your structured Google Sheet.</p>
+        </header>
+
+        <main class="space-y-8">
+            <div class="main-card p-8 rounded-2xl">
+                <h2 class="text-2xl font-bold text-white flex items-center mb-6">
+                    <span class="bg-blue-600/80 text-white w-10 h-10 rounded-xl flex items-center justify-center mr-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                    </span>
+                    1. Load Your Data
+                </h2>
+                <p class="text-gray-400 mb-4 -mt-2">In Google Sheets, go to <b>File > Share > Publish to web</b>. Select your sheet, choose "Comma-separated values (.csv)", click Publish, and paste the generated link below.</p>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="url" id="sheetUrl" placeholder="Paste your 'published to web' URL here" class="flex-grow w-full bg-gray-800 border-2 border-gray-600 rounded-lg p-3 text-white focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    <button id="analyzeBtn" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-105">Load & Analyze</button>
+                </div>
+                <div id="error-container" class="text-red-400 mt-3 text-sm"></div>
+            </div>
+
+            <div id="results-section" class="hidden space-y-8">
+                 <div id="loading-spinner" class="flex justify-center my-8 hidden"><div class="spinner"></div></div>
+                 <h2 class="text-2xl font-bold text-white flex items-center">
+                    <span class="bg-blue-600/80 text-white w-10 h-10 rounded-xl flex items-center justify-center mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></span>
+                    2. Analysis Results
+                </h2>
+                <div id="summary-card" class="main-card p-6 rounded-2xl hidden"></div>
+                <div id="srm-result" class="main-card p-6 rounded-2xl hidden"></div>
+                <div id="metrics-results" class="space-y-6"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sheetUrlInput = document.getElementById('sheetUrl');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const errorContainer = document.getElementById('error-container');
+            const resultsSection = document.getElementById('results-section');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const summaryCard = document.getElementById('summary-card');
+            const srmResultContainer = document.getElementById('srm-result');
+            const metricsResultsContainer = document.getElementById('metrics-results');
+            
+            analyzeBtn.addEventListener('click', handleAnalysis);
+
+            async function handleAnalysis() {
+                clearPreviousResults();
+                const url = sheetUrlInput.value.trim();
+                if (!url) { 
+                    showError('Please paste your "published to web" URL.'); 
+                    return; 
+                }
+                
+                setLoadingState(true);
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`Fetch failed (Status: ${response.status}). Ensure the URL is correct and from the "Publish to web" dialog.`);
+
+                    const text = await response.text();
+                    const analysisData = parseSheetData(text);
+                    runFullAnalysis(analysisData);
+
+                } catch (error) {
+                    showError(`Error: ${error.message}`);
+                } finally {
+                    setLoadingState(false);
+                }
+            }
+
+            function parseSheetData(csvText) {
+                if (csvText.charCodeAt(0) === 0xFEFF) {
+                    csvText = csvText.substring(1);
+                }
+
+                const lines = csvText.trim().split(/\r\n|\n/);
+                const config = {};
+                const dataRows = [];
+                let isConfigSection = true;
+
+                console.log('First 5 lines:', lines.slice(0, 5));
+
+                for (const line of lines) {
+                    if (line.trim() === '') {
+                        isConfigSection = false;
+                        continue;
+                    }
+                    
+                    if (isConfigSection) {
+                        const parts = line.split(',');
+                        if (parts.length >= 2) {
+                            const key = parts[0].trim().replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
+                            const value = parts.slice(1).join(',').trim().replace(/^["']|["']$/g, '');
+                            if (key) {
+                                config[key] = value;
+                                console.log(`Config: "${key}" = "${value}"`);
+                            }
+                        }
+                    } else if (line.split(',')[0].trim().toLowerCase() !== 'group') {
+                        dataRows.push(line.split(','));
+                    }
+                }
+
+                console.log('Parsed config:', config);
+                console.log('Data rows found:', dataRows.length);
+
+                const requiredConfig = ['Test_Name', 'Test_Type', 'Control_Group_Name', 'Test_Group_Name', 'Expected_Control_Split', 'Guardrail_Threshold'];
+                requiredConfig.forEach(key => {
+                    if (!config[key]) throw new Error(`Missing required configuration parameter in sheet: ${key}`);
+                });
+                
+                if (!['Performance Improvement', 'Technical Change'].includes(config.Test_Type)) {
+                     throw new Error(`Test_Type must be 'Performance Improvement' or 'Technical Change'.`);
+                }
+                
+                if (dataRows.length < 2) throw new Error('Could not find sufficient data rows in the sheet.');
+
+                const dataHeaders = ['Group', 'Opportunities', 'Requests', 'Bids', 'Impressions', 'Revenue'];
+                const controlRowRaw = dataRows.find(r => r[0].trim() === config.Control_Group_Name);
+                const treatmentRowRaw = dataRows.find(r => r[0].trim() === config.Test_Group_Name);
+
+                if (!controlRowRaw || !treatmentRowRaw) throw new Error('Could not find data rows matching Control_Group_Name and Test_Group_Name from configuration.');
+
+                const processRow = (row) => {
+                    const obj = {};
+                    dataHeaders.forEach((header, i) => {
+                        const cellValue = row[i] ? row[i].trim() : '';
+                        obj[header] = i > 0 ? parseFloat(cellValue.replace(/[^0-9.-]/g, '')) : cellValue;
+                        if (i > 0 && isNaN(obj[header])) throw new Error(`Invalid number for '${header}' in group '${row[0]}'.`);
+                    });
+                    return obj;
+                };
+
+                return {
+                    config,
+                    controlData: processRow(controlRowRaw),
+                    treatmentData: processRow(treatmentRowRaw),
+                };
+            }
+
+            function runFullAnalysis(analysisData) {
+                displaySummary(analysisData.config);
+
+                const srmResult = performSRMCheck(analysisData);
+                displaySRMResult(srmResult);
+
+                const metrics = [
+                    { name: 'RPO (Revenue per 1M Opps)', numerator: 'Revenue', denominator: 'Opportunities', multiplier: 1000000, isRate: false },
+                    { name: 'RR (Revenue per 1M Reqs)', numerator: 'Revenue', denominator: 'Requests', multiplier: 1000000, isRate: false },
+                    { name: 'Bid Rate', numerator: 'Bids', denominator: 'Requests', isRate: true },
+                    { name: 'Fill Rate', numerator: 'Impressions', denominator: 'Opportunities', isRate: true },
+                ];
+
+                metrics.forEach(metric => {
+                    const result = analyzeMetric(metric, analysisData);
+                    displayMetricResult(result, analysisData.config);
+                });
+            }
+            
+            function performSRMCheck({ config, controlData, treatmentData }) {
+                const controlOpps = controlData.Opportunities;
+                const treatmentOpps = treatmentData.Opportunities;
+                const totalOpps = controlOpps + treatmentOpps;
+                const expectedSplit = parseFloat(config.Expected_Control_Split) / 100;
+
+                const expectedControl = totalOpps * expectedSplit;
+                const expectedTreatment = totalOpps * (1 - expectedSplit);
+
+                const chiSquare = Math.pow(controlOpps - expectedControl, 2) / expectedControl + Math.pow(treatmentOpps - expectedTreatment, 2) / expectedTreatment;
+                const pValue = Math.exp(-0.5 * chiSquare);
+                
+                return { pValue, isMismatch: pValue < 0.05 };
+            }
+
+            function analyzeMetric(metric, { controlData, treatmentData }) {
+                const c_num = controlData[metric.numerator];
+                const c_den = controlData[metric.denominator];
+                const t_num = treatmentData[metric.numerator];
+                const t_den = treatmentData[metric.denominator];
+                
+                const controlVal = (c_num / c_den) * (metric.multiplier || 1);
+                const treatmentVal = (t_num / t_den) * (metric.multiplier || 1);
+                const lift = controlVal === 0 ? Infinity : (treatmentVal - controlVal) / controlVal;
+                
+                let pValue, ci;
+
+                if (metric.isRate) {
+                    const p1 = c_num / c_den;
+                    const p2 = t_num / t_den;
+                    const p_pooled = (c_num + t_num) / (c_den + t_den);
+                    const se = Math.sqrt(p_pooled * (1 - p_pooled) * (1/c_den + 1/t_den));
+                    const zStat = se === 0 ? 0 : (p2 - p1) / se;
+                    pValue = 2 * (1 - standardNormalCdf(Math.abs(zStat)));
+                    
+                    const marginOfError = 1.96 * Math.sqrt((p1 * (1 - p1) / c_den) + (p2 * (1 - p2) / t_den));
+                    ci = p1 === 0 ? [0,0] : [(p2 - p1 - marginOfError) / p1, (p2 - p1 + marginOfError) / p1];
+                } else {
+                    const se_control = controlVal === 0 ? 0 : (controlVal / Math.sqrt(c_num));
+                    const se_treatment = treatmentVal === 0 ? 0 : (treatmentVal / Math.sqrt(t_num));
+                    const se_diff = Math.sqrt(se_control*se_control + se_treatment*se_treatment);
+                    const zStat = se_diff === 0 ? 0 : (treatmentVal - controlVal) / se_diff;
+                    pValue = 2 * (1 - standardNormalCdf(Math.abs(zStat)));
+                    const marginOfError = 1.96 * se_diff;
+                    ci = controlVal === 0 ? [0,0] : [(treatmentVal - controlVal - marginOfError)/controlVal, (treatmentVal - controlVal + marginOfError)/controlVal];
+                }
+
+                return { name: metric.name, pValue, lift, ci, controlVal, treatmentVal };
+            }
+            
+            function displaySummary(config) {
+                summaryCard.innerHTML = `
+                    <h3 class="text-xl font-semibold text-white mb-4">Test Summary</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+                        ${Object.entries(config).map(([key, value]) => `
+                            <div>
+                                <p class="text-gray-400">${key.replace(/_/g, ' ')}</p>
+                                <p class="font-semibold">${value}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                summaryCard.classList.remove('hidden');
+            }
+
+            function displaySRMResult({ pValue, isMismatch }) {
+                const color = isMismatch ? 'red' : 'green';
+                const conclusion = isMismatch ? 'FAIL: Significant Mismatch Detected' : 'PASS: No Significant Mismatch';
+                const text = isMismatch
+                    ? 'The actual traffic split significantly differs from the expected split. The test setup may be flawed, and results should be treated with extreme caution.'
+                    : 'The observed traffic split is consistent with the expected split. The experiment setup appears valid.';
+                srmResultContainer.innerHTML = `
+                    <div class="border-l-4 border-${color}-500 pl-4">
+                        <h3 class="text-xl font-semibold text-white">Sample Ratio Mismatch (SRM) Check</h3>
+                        <p class="font-bold text-${color}-400 mt-1">${conclusion} (p=${pValue.toFixed(4)})</p>
+                        <p class="text-gray-400 mt-2 text-sm">${text}</p>
+                    </div>`;
+                srmResultContainer.classList.remove('hidden');
+            }
+
+            function displayMetricResult(result, config) {
+                const { Test_Type, Guardrail_Threshold } = config;
+                const isSignificant = result.pValue < 0.05;
+                const liftPercentage = result.lift * 100;
+                const guardrailThresholdNum = parseFloat(Guardrail_Threshold);
+
+                let summary, conclusionColor;
+                
+                if (Test_Type === 'Performance Improvement') {
+                    if (isSignificant && liftPercentage > 0) {
+                        summary = `Statistically significant uplift detected. The treatment performed <strong class="text-white">${liftPercentage.toFixed(2)}%</strong> better than the control.`;
+                        conclusionColor = 'text-green-400';
+                    } else if (isSignificant && liftPercentage < 0) {
+                        summary = `Statistically significant decrease detected. The treatment performed <strong class="text-white">${liftPercentage.toFixed(2)}%</strong> worse than the control.`;
+                        conclusionColor = 'text-red-400';
+                    } else {
+                        summary = `The observed lift of ${liftPercentage.toFixed(2)}% is not statistically significant. We cannot conclude a real difference in performance.`;
+                        conclusionColor = 'text-yellow-400';
+                    }
+                } else {
+                    const ciLowerBound = result.ci[0] * 100;
+                    if (ciLowerBound >= guardrailThresholdNum) {
+                        summary = `PASS: The change is safe. We are 95% confident that performance change is no worse than <strong class="text-white">${ciLowerBound.toFixed(2)}%</strong>, which is within the acceptable ${guardrailThresholdNum}% threshold.`;
+                        conclusionColor = 'text-green-400';
+                    } else {
+                        summary = `FAIL: Potential harm detected. We cannot be 95% confident that the performance degradation is better than the <strong class="text-white">${guardrailThresholdNum}%</strong> threshold.`;
+                        conclusionColor = 'text-red-400';
+                    }
+                }
+
+                const isCurrency = result.name.toLowerCase().includes('rpo') || result.name.toLowerCase().includes('rr');
+                const isRate = result.name.toLowerCase().includes('rate');
+                const formatOptions = isCurrency 
+                    ? { style: 'currency', currency: 'USD', minimumFractionDigits: 4 } 
+                    : isRate 
+                        ? { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                        : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+                
+                const metricCard = document.createElement('div');
+                metricCard.className = 'main-card p-6 rounded-2xl';
+                metricCard.innerHTML = `
+                    <h3 class="text-lg font-bold text-white">${result.name}</h3>
+                    <p class="mt-2 text-sm ${conclusionColor}">${summary}</p>
+                    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div>
+                            <p class="text-xs text-gray-400">Control</p>
+                            <p class="text-xl font-bold">${result.controlVal.toLocaleString(undefined, formatOptions)}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400">Treatment</p>
+                            <p class="text-xl font-bold">${result.treatmentVal.toLocaleString(undefined, formatOptions)}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400">Lift</p>
+                            <p class="text-xl font-bold ${liftPercentage > 0 ? 'text-green-400' : (liftPercentage < 0 ? 'text-red-400' : '')}">${liftPercentage.toFixed(2)}%</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400">P-Value</p>
+                            <p class="text-xl font-bold">${result.pValue.toFixed(4)}</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center text-xs text-gray-500">95% Confidence Interval for Lift: [${(result.ci[0]*100).toFixed(2)}%, ${(result.ci[1]*100).toFixed(2)}%]</div>
+                `;
+                metricsResultsContainer.appendChild(metricCard);
+            }
+
+            function setLoadingState(isLoading) {
+                analyzeBtn.disabled = isLoading;
+                if(isLoading) {
+                    resultsSection.classList.remove('hidden');
+                    loadingSpinner.classList.remove('hidden');
+                } else {
+                    loadingSpinner.classList.add('hidden');
+                }
+            }
+
+            function clearPreviousResults() {
+                errorContainer.textContent = '';
+                resultsSection.classList.add('hidden');
+                summaryCard.classList.add('hidden');
+                srmResultContainer.classList.add('hidden');
+                metricsResultsContainer.innerHTML = '';
+            }
+            
+            function showError(message) {
+                errorContainer.textContent = message;
+            }
+
+            function standardNormalCdf(x) {
+                const t = 1 / (1 + 0.2316419 * Math.abs(x));
+                const d = 0.3989423 * Math.exp(-x * x / 2);
+                let prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+                return x > 0 ? 1 - prob : prob;
+            }
+        });
+    </script>
+</body>
+</html>

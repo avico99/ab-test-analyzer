@@ -116,11 +116,15 @@
                 const dataRows = [];
                 let isConfigSection = true;
 
-                console.log('First 5 lines:', lines.slice(0, 5));
+                console.log('First 10 lines:', lines.slice(0, 10));
 
                 for (const line of lines) {
-                    if (line.trim() === '') {
-                        isConfigSection = false;
+                    const trimmedLine = line.replace(/,+$/, '').trim();
+                    
+                    if (trimmedLine === '') {
+                        if (Object.keys(config).length > 0) {
+                            isConfigSection = false;
+                        }
                         continue;
                     }
                     
@@ -138,6 +142,7 @@
                     } else {
                         const firstCell = line.split(',')[0].trim().toLowerCase();
                         if (firstCell && firstCell !== 'group') {
+                            console.log(`Adding data row: ${line.substring(0, 50)}...`);
                             dataRows.push(line.split(','));
                         }
                     }

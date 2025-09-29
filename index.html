@@ -120,12 +120,17 @@
 
                 for (const line of lines) {
                     const trimmedLine = line.replace(/,+$/, '').trim();
+                    const firstCell = line.split(',')[0].trim();
                     
+                    // Skip completely empty lines
                     if (trimmedLine === '') {
-                        if (Object.keys(config).length > 0) {
-                            isConfigSection = false;
-                        }
                         continue;
+                    }
+                    
+                    // Detect the "Group" header to switch to data mode
+                    if (firstCell.toLowerCase() === 'group') {
+                        isConfigSection = false;
+                        continue; // Skip the header row itself
                     }
                     
                     if (isConfigSection) {
@@ -140,9 +145,9 @@
                             }
                         }
                     } else {
-                        const firstCell = line.split(',')[0].trim().toLowerCase();
-                        if (firstCell && firstCell !== 'group') {
-                            console.log(`Adding data row: ${line.substring(0, 50)}...`);
+                        // We're in data section now
+                        if (firstCell) {
+                            console.log(`Adding data row: ${line.substring(0, 80)}...`);
                             dataRows.push(line.split(','));
                         }
                     }

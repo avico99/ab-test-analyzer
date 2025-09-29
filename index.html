@@ -70,6 +70,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
             const sheetUrlInput = document.getElementById('sheetUrl');
             const analyzeBtn = document.getElementById('analyzeBtn');
             const errorContainer = document.getElementById('error-container');
@@ -79,23 +80,23 @@
             const srmResultContainer = document.getElementById('srm-result');
             const metricsResultsContainer = document.getElementById('metrics-results');
             
+            // --- Event Listeners ---
             analyzeBtn.addEventListener('click', handleAnalysis);
 
+            // --- Core Logic ---
             async function handleAnalysis() {
                 clearPreviousResults();
                 const url = sheetUrlInput.value.trim();
-                if (!url) { 
-                    showError('Please paste your "published to web" URL.'); 
-                    return; 
-                }
+                if (!url) { showError('Please paste your "published to web" URL.'); return; }
                 
                 setLoadingState(true);
 
                 try {
-                    const response = await fetch(url);
+                    const response = await fetch(url); // No proxy needed for published links
                     if (!response.ok) throw new Error(`Fetch failed (Status: ${response.status}). Ensure the URL is correct and from the "Publish to web" dialog.`);
 
                     const text = await response.text();
+                    
                     const analysisData = parseSheetData(text);
                     runFullAnalysis(analysisData);
 
@@ -107,6 +108,7 @@
             }
 
             function parseSheetData(csvText) {
+                // Remove potential Byte Order Mark (BOM) from the start of the file
                 if (csvText.charCodeAt(0) === 0xFEFF) {
                     csvText = csvText.substring(1);
                 }
@@ -116,58 +118,36 @@
                 const dataRows = [];
                 let isConfigSection = true;
 
-                console.log('First 10 lines:', lines.slice(0, 10));
-
                 for (const line of lines) {
-                    const trimmedLine = line.replace(/,+$/, '').trim();
-                    const firstCell = line.split(',')[0].trim();
-                    
-                    // Skip completely empty lines
-                    if (trimmedLine === '') {
+                    if (line.trim() === '') {
+                        isConfigSection = false;
                         continue;
                     }
-                    
-                    // Detect the "Group" header to switch to data mode
-                    if (firstCell.toLowerCase() === 'group') {
-                        isConfigSection = false;
-                        continue; // Skip the header row itself
-                    }
-                    
                     if (isConfigSection) {
-                        const parts = line.split(',');
-                        if (parts.length >= 2) {
-                            const key = parts[0].trim().replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
-                            let value = parts.slice(1).join(',').trim().replace(/^["']|["']$/g, '');
-                            value = value.replace(/,+$/, '').trim();
-                            if (key) {
+                        const firstCommaIndex = line.indexOf(',');
+                        if (firstCommaIndex !== -1) {
+                            const key = line.substring(0, firstCommaIndex).trim().replace(/[^\x20-\x7E]/g, '');
+                            const value = line.substring(firstCommaIndex + 1).trim().replace(/"/g, '');
+                            if (key) { // Ensure the key is not empty after cleaning
                                 config[key] = value;
-                                console.log(`Config: "${key}" = "${value}"`);
                             }
                         }
-                    } else {
-                        // We're in data section now
-                        if (firstCell) {
-                            console.log(`Adding data row: ${line.substring(0, 80)}...`);
-                            dataRows.push(line.split(','));
-                        }
+                    } else if (line.split(',')[0].trim().toLowerCase() !== 'group') {
+                        dataRows.push(line.split(','));
                     }
                 }
 
-                console.log('Parsed config:', config);
-                console.log('Data rows found:', dataRows.length);
-                console.log('Data rows:', dataRows);
-
+                // --- Validation ---
                 const requiredConfig = ['Test_Name', 'Test_Type', 'Control_Group_Name', 'Test_Group_Name', 'Expected_Control_Split', 'Guardrail_Threshold'];
                 requiredConfig.forEach(key => {
                     if (!config[key]) throw new Error(`Missing required configuration parameter in sheet: ${key}`);
                 });
-                
                 if (!['Performance Improvement', 'Technical Change'].includes(config.Test_Type)) {
                      throw new Error(`Test_Type must be 'Performance Improvement' or 'Technical Change'.`);
                 }
-                
                 if (dataRows.length < 2) throw new Error('Could not find sufficient data rows in the sheet.');
 
+                // --- Data Structuring ---
                 const dataHeaders = ['Group', 'Opportunities', 'Requests', 'Bids', 'Impressions', 'Revenue'];
                 const controlRowRaw = dataRows.find(r => r[0].trim() === config.Control_Group_Name);
                 const treatmentRowRaw = dataRows.find(r => r[0].trim() === config.Test_Group_Name);
@@ -210,6 +190,7 @@
                 });
             }
             
+            // --- Statistical Calculations ---
             function performSRMCheck({ config, controlData, treatmentData }) {
                 const controlOpps = controlData.Opportunities;
                 const treatmentOpps = treatmentData.Opportunities;
@@ -220,7 +201,7 @@
                 const expectedTreatment = totalOpps * (1 - expectedSplit);
 
                 const chiSquare = Math.pow(controlOpps - expectedControl, 2) / expectedControl + Math.pow(treatmentOpps - expectedTreatment, 2) / expectedTreatment;
-                const pValue = Math.exp(-0.5 * chiSquare);
+                const pValue = Math.exp(-0.5 * chiSquare); // Chi-squared p-value for 1 degree of freedom
                 
                 return { pValue, isMismatch: pValue < 0.05 };
             }
@@ -237,7 +218,7 @@
                 
                 let pValue, ci;
 
-                if (metric.isRate) {
+                if (metric.isRate) { // Two-proportion z-test for rates
                     const p1 = c_num / c_den;
                     const p2 = t_num / t_den;
                     const p_pooled = (c_num + t_num) / (c_den + t_den);
@@ -247,7 +228,7 @@
                     
                     const marginOfError = 1.96 * Math.sqrt((p1 * (1 - p1) / c_den) + (p2 * (1 - p2) / t_den));
                     ci = p1 === 0 ? [0,0] : [(p2 - p1 - marginOfError) / p1, (p2 - p1 + marginOfError) / p1];
-                } else {
+                } else { // Z-test for difference of ratios (Delta method approximation)
                     const se_control = controlVal === 0 ? 0 : (controlVal / Math.sqrt(c_num));
                     const se_treatment = treatmentVal === 0 ? 0 : (treatmentVal / Math.sqrt(t_num));
                     const se_diff = Math.sqrt(se_control*se_control + se_treatment*se_treatment);
@@ -260,6 +241,7 @@
                 return { name: metric.name, pValue, lift, ci, controlVal, treatmentVal };
             }
             
+            // --- Display & UI Functions ---
             function displaySummary(config) {
                 summaryCard.innerHTML = `
                     <h3 class="text-xl font-semibold text-white mb-4">Test Summary</h3>
@@ -309,7 +291,7 @@
                         summary = `The observed lift of ${liftPercentage.toFixed(2)}% is not statistically significant (p=${result.pValue.toFixed(4)} > 0.05). This could be due to insufficient sample size, high variance in the data, or the absence of a real effect. We cannot conclude a real difference in performance.`;
                         conclusionColor = 'text-yellow-400';
                     }
-                } else {
+                } else { // Technical Change (Guardrail)
                     const ciLowerBound = result.ci[0] * 100;
                     if (ciLowerBound >= guardrailThresholdNum) {
                         summary = `PASS: The change is safe. We are 95% confident that performance change is no worse than <strong class="text-white">${ciLowerBound.toFixed(2)}%</strong>, which is within the acceptable ${guardrailThresholdNum}% threshold.`;
@@ -320,13 +302,20 @@
                     }
                 }
 
+                let formattedControlVal, formattedTreatmentVal;
                 const isCurrency = result.name.toLowerCase().includes('rpo') || result.name.toLowerCase().includes('rr');
                 const isRate = result.name.toLowerCase().includes('rate');
-                const formatOptions = isCurrency 
-                    ? { style: 'currency', currency: 'USD', minimumFractionDigits: 4 } 
-                    : isRate 
-                        ? { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                        : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+
+                if (isCurrency) {
+                    formattedControlVal = `$${result.controlVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    formattedTreatmentVal = `$${result.treatmentVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                } else if (isRate) {
+                    formattedControlVal = result.controlVal.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    formattedTreatmentVal = result.treatmentVal.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                } else {
+                    formattedControlVal = result.controlVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    formattedTreatmentVal = result.treatmentVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
                 
                 const metricCard = document.createElement('div');
                 metricCard.className = 'main-card p-6 rounded-2xl';
@@ -336,11 +325,11 @@
                     <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                         <div>
                             <p class="text-xs text-gray-400">Control</p>
-                            <p class="text-xl font-bold">${result.controlVal.toLocaleString(undefined, formatOptions)}</p>
+                            <p class="text-xl font-bold">${formattedControlVal}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-400">Treatment</p>
-                            <p class="text-xl font-bold">${result.treatmentVal.toLocaleString(undefined, formatOptions)}</p>
+                            <p class="text-xl font-bold">${formattedTreatmentVal}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-400">Lift</p>
@@ -356,6 +345,7 @@
                 metricsResultsContainer.appendChild(metricCard);
             }
 
+            // --- Utility Functions ---
             function setLoadingState(isLoading) {
                 analyzeBtn.disabled = isLoading;
                 if(isLoading) {
@@ -388,3 +378,4 @@
     </script>
 </body>
 </html>
+

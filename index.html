@@ -200,8 +200,8 @@
                 const metrics = [
                     { name: 'RPO (Revenue per 1M Opps)', numerator: 'Revenue', denominator: 'Opportunities', multiplier: 1000000, isRate: false },
                     { name: 'RR (Revenue per 1M Reqs)', numerator: 'Revenue', denominator: 'Requests', multiplier: 1000000, isRate: false },
-                    { name: 'Bid Rate', numerator: 'Bids', denominator: 'Requests', isRate: true },
-                    { name: 'Fill Rate', numerator: 'Impressions', denominator: 'Opportunities', isRate: true },
+                    { name: 'Bid Rate', numerator: 'Bids', denominator: 'Requests', multiplier: 1, isRate: true },
+                    { name: 'Fill Rate', numerator: 'Impressions', denominator: 'Opportunities', multiplier: 1, isRate: true },
                 ];
 
                 metrics.forEach(metric => {
@@ -306,7 +306,7 @@
                         summary = `Statistically significant decrease detected. The treatment performed <strong class="text-white">${liftPercentage.toFixed(2)}%</strong> worse than the control.`;
                         conclusionColor = 'text-red-400';
                     } else {
-                        summary = `The observed lift of ${liftPercentage.toFixed(2)}% is not statistically significant. We cannot conclude a real difference in performance.`;
+                        summary = `The observed lift of ${liftPercentage.toFixed(2)}% is not statistically significant (p=${result.pValue.toFixed(4)} > 0.05). This could be due to insufficient sample size, high variance in the data, or the absence of a real effect. We cannot conclude a real difference in performance.`;
                         conclusionColor = 'text-yellow-400';
                     }
                 } else {

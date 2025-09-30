@@ -29,40 +29,153 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        .info-button-container {
+            position: relative;
+        }
+        .tooltip {
+            display: none;
+            position: absolute;
+            bottom: 120%;
+            right: 50%;
+            transform: translateX(50%);
+            background-color: #1f2937;
+            color: #d1d5db;
+            padding: 10px 14px;
+            border-radius: 8px;
+            z-index: 20;
+            width: 320px;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            pointer-events: none;
+        }
+        .info-button-container:hover .tooltip {
+            display: block;
+            opacity: 1;
+        }
+        .tab-button {
+            transition: all 0.2s ease-in-out;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-button.active {
+            border-bottom-color: #4f46e5;
+            color: #e5e7eb;
+        }
+        .select-all-btn {
+             background-color: #374151;
+             color: #d1d5db;
+             padding: 4px 10px;
+             font-size: 12px;
+             border-radius: 6px;
+             transition: background-color 0.2s;
+        }
+        .select-all-btn:hover {
+            background-color: #4b5563;
+        }
     </style>
 </head>
 <body class="text-gray-200">
 
     <div class="container mx-auto p-4 md:p-8 max-w-6xl">
         <header class="text-center mb-12">
-            <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-600">A/B Test Analysis App</h1>
-            <p class="text-lg text-gray-400 mt-3">Automated analysis from your structured Google Sheet.</p>
+            <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-600">A/B Test Analysis App & Query Builder</h1>
         </header>
 
         <main class="space-y-8">
-            <div class="main-card p-8 rounded-2xl">
-                <h2 class="text-2xl font-bold text-white flex items-center mb-6">
-                    <span class="bg-blue-600/80 text-white w-10 h-10 rounded-xl flex items-center justify-center mr-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                    </span>
-                    1. Load Your Data
-                </h2>
-                <p class="text-gray-400 mb-4 -mt-2">In Google Sheets, go to <b>File > Share > Publish to web</b>. Select your sheet, choose "Comma-separated values (.csv)", click Publish, and paste the generated link below.</p>
-                <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="url" id="sheetUrl" placeholder="Paste your 'published to web' URL here" class="flex-grow w-full bg-gray-800 border-2 border-gray-600 rounded-lg p-3 text-white focus:ring-blue-500 focus:border-blue-500 transition-all">
-                    <button id="analyzeBtn" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-105">Load & Analyze</button>
-                </div>
-                <div id="error-container" class="text-red-400 mt-3 text-sm"></div>
+            <!-- Tabs Navigation -->
+            <div class="flex space-x-4 border-b border-gray-700 mb-6">
+                <button id="tab-btn-sheet" class="tab-button active text-lg font-semibold px-4 py-2 text-gray-400">1. Analyze from Google Sheet</button>
+                <button id="tab-btn-bq" class="tab-button text-lg font-semibold px-4 py-2 text-gray-400">2. Build BigQuery Query</button>
             </div>
 
+            <!-- Tab Content: Google Sheet -->
+            <div id="tab-panel-sheet">
+                <div class="main-card p-8 rounded-2xl">
+                    <h2 class="text-2xl font-bold text-white flex items-center mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                        <span class="ml-4">Load Your Data</span>
+                    </h2>
+                    <p class="text-gray-400 mb-4 -mt-2">In Google Sheets, go to <b>File > Share > Publish to web</b>. Select your sheet, choose "Comma-separated values (.csv)", click Publish, and paste the generated link below.</p>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input type="url" id="sheetUrl" placeholder="Paste your 'published to web' URL here" class="flex-grow w-full bg-gray-800 border-2 border-gray-600 rounded-lg p-3 text-white focus:ring-blue-500 focus:border-blue-500 transition-all">
+                        <button id="analyzeBtn" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-105">Load & Analyze</button>
+                    </div>
+                    <div id="error-container" class="text-red-400 mt-3 text-sm"></div>
+                </div>
+            </div>
+            
+            <!-- Tab Content: BigQuery Builder -->
+            <div id="tab-panel-bq" class="hidden">
+                 <div class="main-card p-8 rounded-2xl space-y-8">
+                     <!-- Orgs -->
+                     <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-xl font-bold text-white">1. Select Orgs</h3>
+                            <button id="select-all-orgs" data-target="org" class="select-all-btn">Select All</button>
+                        </div>
+                        <div id="bq-orgs" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+                     </div>
+                     <!-- DC Regions -->
+                      <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-xl font-bold text-white">2. Select DC Regions</h3>
+                            <button id="select-all-regions" data-target="region" class="select-all-btn">Select All</button>
+                        </div>
+                        <div id="bq-regions" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+                     </div>
+                     <!-- Date & Time -->
+                      <div>
+                        <h3 class="text-xl font-bold text-white mb-3">3. Select Date & Time (Israel Time)</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <input type="date" id="bq-date" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3">
+                            <input type="time" id="bq-start-time" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3">
+                            <input type="time" id="bq-end-time" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3">
+                        </div>
+                     </div>
+                     <!-- Group By & Filters -->
+                     <div>
+                         <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-xl font-bold text-white">4. Select Groupings & Add Filters</h3>
+                             <button id="select-all-groupby" data-target="groupby" class="select-all-btn">Select All</button>
+                         </div>
+                        <p class="text-sm text-gray-400 -mt-2 mb-4">Select fields to group by. You can also add filters for any field below, even if it's not selected for grouping.</p>
+                        <div id="bq-groupby" class="space-y-3"></div>
+                     </div>
+                     <!-- Metrics -->
+                     <div>
+                         <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-xl font-bold text-white">5. Select Metrics</h3>
+                             <button id="select-all-metrics" data-target="metric" class="select-all-btn">Select All</button>
+                         </div>
+                        <div id="bq-metrics" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+                     </div>
+                     <!-- Action Button -->
+                     <div class="text-center pt-4">
+                        <button id="generateQueryBtn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition duration-300 transform hover:scale-105">Generate Query</button>
+                     </div>
+                     <!-- Generated Query -->
+                     <div id="bq-query-output-container" class="hidden">
+                         <h3 class="text-xl font-bold text-white mb-3 mt-6">Generated Query</h3>
+                         <div class="relative">
+                            <pre id="bq-query-output" class="bg-gray-900 text-sm p-4 rounded-lg overflow-x-auto max-h-96"></pre>
+                            <button id="copyQueryBtn" class="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-1 px-3 rounded">Copy</button>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+
+            <!-- Analysis results section (shared) -->
             <div id="results-section" class="hidden space-y-8">
                  <div id="loading-spinner" class="flex justify-center my-8 hidden"><div class="spinner"></div></div>
                  <h2 class="text-2xl font-bold text-white flex items-center">
-                    <span class="bg-blue-600/80 text-white w-10 h-10 rounded-xl flex items-center justify-center mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></span>
-                    2. Analysis Results
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                    <span class="ml-4">Analysis Results</span>
                 </h2>
                 <div id="summary-card" class="main-card p-6 rounded-2xl hidden"></div>
-                <div id="srm-result" class="main-card p-6 rounded-2xl hidden"></div>
+                <div id="srm-result" class="main-card p-6 rounded-2xl hidden relative"></div>
                 <div id="metrics-results" class="space-y-6"></div>
             </div>
         </main>
@@ -80,163 +193,333 @@
             const srmResultContainer = document.getElementById('srm-result');
             const metricsResultsContainer = document.getElementById('metrics-results');
             
+            // --- Tab Elements ---
+            const tabBtnSheet = document.getElementById('tab-btn-sheet');
+            const tabBtnBq = document.getElementById('tab-btn-bq');
+            const tabPanelSheet = document.getElementById('tab-panel-sheet');
+            const tabPanelBq = document.getElementById('tab-panel-bq');
+
+            // --- BQ Builder Elements ---
+            const bqOrgsContainer = document.getElementById('bq-orgs');
+            const bqRegionsContainer = document.getElementById('bq-regions');
+            const bqDateInput = document.getElementById('bq-date');
+            const bqStartTimeInput = document.getElementById('bq-start-time');
+            const bqEndTimeInput = document.getElementById('bq-end-time');
+            const bqGroupByContainer = document.getElementById('bq-groupby');
+            const bqMetricsContainer = document.getElementById('bq-metrics');
+            const generateQueryBtn = document.getElementById('generateQueryBtn');
+            const bqQueryOutputContainer = document.getElementById('bq-query-output-container');
+            const bqQueryOutput = document.getElementById('bq-query-output');
+            const copyQueryBtn = document.getElementById('copyQueryBtn');
+            
+            // --- BQ Builder Data ---
+            const bqOrgs = {
+                '614089bf9bbbfe000189911f': 'MinuteMedia', '5d1a6421ecad4c0001c39467': 'is-programmatic (Rise)',
+                '659a59663a58f10001dfd8f0': 'OpenWeb-Parent', '5d53db4177619d00011c3384': 'Errors Tables',
+                '66969674d653a700014942eb': 'Ascendeum-ES-Parent', '6731c5e4468a120001c79b1a': 'HomeTalk-ES-Parent',
+                '6779749b989234000120f23c': 'Playbuzz-ES-Parent (677..)'
+            };
+            const bqRegions = ['us-west-2', 'us-east-1', 'eu-west-1'];
+            const bqGroupByOptions = {
+                subid: { select: 'subid', filterColumn: 'subid', type: 'inner' },
+                rtb_connection_type: { select: 'conn.type AS rtb_connection_type', filterColumn: 'conn.type', type: 'outer' },
+                org: { select: 'adsmanager.org', filterColumn: 'adsmanager.org', type: 'outer' },
+                bas: { select: 'bas', filterColumn: 'bas', type: 'outer' },
+                publisher: { select: 'org.name AS publisher', filterColumn: 'org.name', type: 'outer' },
+                env: { select: 'adsmanager.env', filterColumn: 'env', type: 'inner' },
+                adtype: { select: 'adsmanager.adtype AS adtype', filterColumn: 'adtype', type: 'inner' },
+                fc: { select: `CASE WHEN fc THEN 'true' ELSE 'false' END AS fc`, filterColumn: 'fc', type: 'inner' },
+            };
+            const bqMetrics = {
+                ttl_opps: "SUM(CASE WHEN action = 'bsn' THEN SAFE_DIVIDE(1, NULLIF(SAFE_CAST(sample_rate AS FLOAT64), 0)) ELSE 0 END)\n + SUM(CASE WHEN action = 'am' THEN SAFE_DIVIDE(1, NULLIF(step, 0)) ELSE 0 END) AS ttl_opps",
+                bsn_blocks: "SUM(CASE WHEN action = 'bsn' THEN SAFE_DIVIDE(1, NULLIF(SAFE_CAST(sample_rate AS FLOAT64), 0)) ELSE 0 END) AS bsn_blocks",
+                opps: "SUM(CASE WHEN action = 'am' THEN SAFE_DIVIDE(1, NULLIF(step, 0)) ELSE 0 END) AS opps",
+                bl0_supply: "SUM(CASE WHEN action = 'am' AND REGEXP_CONTAINS(bl0_report, r'_filtered')\n THEN SAFE_DIVIDE(1, NULLIF(step, 0)) ELSE 0 END) AS bl0_supply",
+                reqs: "SUM(CASE WHEN action = 'bid' THEN 1 ELSE 0 END)\n + SUM(CASE WHEN action = 'nbd' THEN SAFE_CAST(r3 AS INT64) ELSE 0 END)\n + SUM(CASE WHEN category = 'prebid-error' AND errorcode <> '1' THEN 1 ELSE 0 END) AS reqs",
+                bids: "SUM(CASE WHEN action = 'bid' THEN 1 ELSE 0 END) AS bids",
+                wins: "SUM(CASE WHEN action = 'win' THEN 1 ELSE 0 END) AS wins",
+                imp: "SUM(CASE WHEN adsmanager.action = rev_toggles.toggle_val THEN 1 ELSE 0 END) AS imp",
+                rev: "SUM(SAFE_CAST(adsmanager.adsourcerate AS FLOAT64)\n * CASE WHEN adsmanager.action = rev_toggles.toggle_val THEN 1 ELSE 0 END) / 1000 AS rev",
+                cost: "SUM(\n SAFE_CAST(\n CASE WHEN subid = 'vast' THEN adsmanager.param2 ELSE adsmanager.cost END\n AS FLOAT64\n ) * CASE WHEN adsmanager.action = cost_toggles.toggle_val THEN 1 ELSE 0 END\n ) / 1000 AS cost",
+                QPS_blocked: "CAST(SUM(CASE WHEN action = 'bn' AND errorcode = '2'\n THEN SAFE_DIVIDE(1, NULLIF(sample_rate, 0))\n ELSE 0 END) AS INT64) AS QPS_blocked"
+            };
+
+            // --- Initialize UI ---
+            function init() {
+                // Populate BQ Builder UI
+                Object.entries(bqOrgs).forEach(([id, name]) => bqOrgsContainer.innerHTML += createCheckbox(name, 'org', id));
+                bqRegions.forEach(region => bqRegionsContainer.innerHTML += createCheckbox(region, 'region', region));
+                Object.keys(bqGroupByOptions).forEach(key => bqGroupByContainer.innerHTML += createGroupByRow(key));
+                Object.keys(bqMetrics).forEach(key => bqMetricsContainer.innerHTML += createCheckbox(key, 'metric', key));
+                
+                // Set default date/time
+                const now = new Date();
+                bqDateInput.value = now.toISOString().split('T')[0];
+                bqStartTimeInput.value = '00:00';
+                bqEndTimeInput.value = '23:59';
+
+                // Setup Select All buttons
+                setupSelectAllButton('select-all-orgs');
+                setupSelectAllButton('select-all-regions');
+                setupSelectAllButton('select-all-groupby');
+                setupSelectAllButton('select-all-metrics');
+            }
+
+            function createCheckbox(label, name, value) {
+                return `
+                    <label class="flex items-center space-x-2 bg-gray-800 p-2 rounded-md hover:bg-gray-700 cursor-pointer">
+                        <input type="checkbox" name="${name}" value="${value}" class="form-checkbox h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 rounded">
+                        <span class="text-sm">${label}</span>
+                    </label>
+                `;
+            }
+             function createGroupByRow(key) {
+                return `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+                        <label class="flex items-center space-x-2 col-span-1">
+                            <input type="checkbox" name="groupby" value="${key}" class="form-checkbox h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 rounded">
+                            <span class="font-semibold">${key}</span>
+                        </label>
+                        <input type="text" id="filter-${key}" placeholder="e.g., value1,value2" class="col-span-2 w-full bg-gray-800 border-2 border-gray-600 rounded-lg p-2 text-sm text-white focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    </div>
+                `;
+            }
+
+            function setupSelectAllButton(buttonId) {
+                const button = document.getElementById(buttonId);
+                button.addEventListener('click', () => {
+                    const targetName = button.dataset.target;
+                    const checkboxes = document.querySelectorAll(`input[name="${targetName}"]`);
+                    const isSelectAll = button.textContent === 'Select All';
+                    checkboxes.forEach(cb => cb.checked = isSelectAll);
+                    button.textContent = isSelectAll ? 'Deselect All' : 'Select All';
+                });
+            }
+            
             // --- Event Listeners ---
             analyzeBtn.addEventListener('click', handleAnalysis);
+            tabBtnSheet.addEventListener('click', () => switchTab('sheet'));
+            tabBtnBq.addEventListener('click', () => switchTab('bq'));
+            generateQueryBtn.addEventListener('click', handleGenerateQuery);
+            copyQueryBtn.addEventListener('click', handleCopyQuery);
 
-            // --- Core Logic ---
+            // --- Tab Switching ---
+            function switchTab(tab) {
+                if (tab === 'sheet') {
+                    tabBtnSheet.classList.add('active'); tabBtnBq.classList.remove('active');
+                    tabPanelSheet.classList.remove('hidden'); tabPanelBq.classList.add('hidden');
+                } else {
+                    tabBtnBq.classList.add('active'); tabBtnSheet.classList.remove('active');
+                    tabPanelBq.classList.remove('hidden'); tabPanelSheet.classList.add('hidden');
+                }
+            }
+            
+            // --- Query Builder Logic ---
+            function handleGenerateQuery() {
+                // Get user selections
+                const selectedOrgs = Array.from(document.querySelectorAll('input[name="org"]:checked')).map(el => el.value);
+                const selectedRegions = Array.from(document.querySelectorAll('input[name="region"]:checked')).map(el => el.value);
+                const selectedGroupBy = Array.from(document.querySelectorAll('input[name="groupby"]:checked')).map(el => el.value);
+                const selectedMetrics = Array.from(document.querySelectorAll('input[name="metric"]:checked')).map(el => el.value);
+
+                if (selectedOrgs.length === 0 || selectedRegions.length === 0 || selectedMetrics.length === 0) {
+                    alert('Please select at least one Org, one DC Region, and one Metric.');
+                    return;
+                }
+
+                // Date & Time processing (Israel to UTC)
+                const date = bqDateInput.value; const startTime = bqStartTimeInput.value; const endTime = bqEndTimeInput.value;
+                const startDateTimeLocal = new Date(`${date}T${startTime}:00+03:00`); // Assuming IDT (UTC+3)
+                const endDateTimeLocal = new Date(`${date}T${endTime}:00+03:00`);
+                const utcStart = startDateTimeLocal.toISOString().replace('T', ' ').substring(0, 19);
+                const utcEnd = endDateTimeLocal.toISOString().replace('T', ' ').substring(0, 19);
+                const tableDate = startDateTimeLocal.toISOString().substring(0, 10).replace(/-/g, '');
+
+                // Filter processing
+                const innerFilters = [`dc_region IN (${selectedRegions.map(r => `'${r}'`).join(',')})`];
+                const outerFilters = [];
+                Object.keys(bqGroupByOptions).forEach(key => {
+                    const filterValues = document.getElementById(`filter-${key}`).value.trim();
+                    if (filterValues) {
+                        const values = filterValues.split(',').map(v => `'${v.trim()}'`).join(',');
+                        const option = bqGroupByOptions[key];
+                        const clause = `${option.filterColumn} IN (${values})`;
+                        if (option.type === 'inner') innerFilters.push(clause); else outerFilters.push(clause);
+                    }
+                });
+
+                // Build query parts
+                const groupingSelects = selectedGroupBy.map(key => bqGroupByOptions[key].select);
+                const metricSelects = selectedMetrics.map(key => bqMetrics[key]);
+                const selectClause = ['SPLIT(module_version, "~")[OFFSET(0)] AS mv', ...groupingSelects, ...metricSelects].join(',\n  ');
+                const groupByClause = 'GROUP BY ALL';
+
+                const subQueryTemplate = (orgId) => `
+SELECT
+    subid, module_version, r3, rtb_conn_id, bas, env, supply_org, org, bl0_report, sample_rate, step, timestamp, dc_region, action, category, errorcode, adsourcerate, cost, param2, fc, adtype
+FROM \`streamrail.${orgId}.adsmanager_${tableDate}\`
+WHERE timestamp BETWEEN "${utcStart}" AND "${utcEnd}"
+  AND ${innerFilters.join('\n  AND ')}`;
+                
+                const unionAll = selectedOrgs.map(orgId => subQueryTemplate(orgId)).join('\n\nUNION ALL\n');
+
+                const finalQuery = `SELECT
+  ${selectClause}
+FROM (${unionAll}
+) AS adsmanager
+LEFT JOIN \`streamrail.dscf.RtbConnection\` AS conn ON adsmanager.rtb_conn_id = conn.Id AND adsmanager.bas = conn.sellername
+LEFT JOIN \`streamrail.dscf.Advertiser\` AS Adv ON conn.advertiser = Adv.id
+LEFT JOIN \`streamrail.dscf.Org\` AS Org ON adsmanager.supply_org = Org.id AND Org.id = adsmanager.org
+LEFT JOIN \`streamrail.bi_production.cost_toggles\` AS cost_toggles ON cost_toggles.Org_id = Org.id AND cost_toggles.env = adsmanager.env AND cost_toggles.toggle_val = adsmanager.action
+LEFT JOIN \`streamrail.bi_production.revenue_toggles\` AS rev_toggles ON rev_toggles.Adv_id = Adv.id AND rev_toggles.env = adsmanager.env AND rev_toggles.toggle_val = adsmanager.action
+${outerFilters.length > 0 ? 'WHERE ' + outerFilters.join('\n  AND ') : ''}
+${groupByClause};`;
+
+                bqQueryOutput.textContent = finalQuery;
+                bqQueryOutputContainer.classList.remove('hidden');
+            }
+
+            function handleCopyQuery() {
+                const textToCopy = bqQueryOutput.textContent;
+                const textArea = document.createElement('textarea');
+                textArea.value = textToCopy;
+                
+                // Make the textarea invisible
+                textArea.style.position = 'fixed';
+                textArea.style.top = '0';
+                textArea.style.left = '0';
+                textArea.style.width = '2em';
+                textArea.style.height = '2em';
+                textArea.style.padding = '0';
+                textArea.style.border = 'none';
+                textArea.style.outline = 'none';
+                textArea.style.boxShadow = 'none';
+                textArea.style.background = 'transparent';
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        copyQueryBtn.textContent = 'Copied!';
+                        setTimeout(() => { copyQueryBtn.textContent = 'Copy'; }, 2000);
+                    } else {
+                        console.error('Fallback: Oops, unable to copy');
+                    }
+                } catch (err) {
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+
+                document.body.removeChild(textArea);
+            }
+
+
+            // --- A/B Test Core Logic ---
             async function handleAnalysis() {
                 clearPreviousResults();
                 const url = sheetUrlInput.value.trim();
                 if (!url) { showError('Please paste your "published to web" URL.'); return; }
-                
                 setLoadingState(true);
-
                 try {
-                    const response = await fetch(url); // No proxy needed for published links
+                    const response = await fetch(url);
                     if (!response.ok) throw new Error(`Fetch failed (Status: ${response.status}). Ensure the URL is correct and from the "Publish to web" dialog.`);
-
                     const text = await response.text();
-                    
                     const analysisData = parseSheetData(text);
                     runFullAnalysis(analysisData);
-
                 } catch (error) {
                     showError(`Error: ${error.message}`);
-                } finally {
-                    setLoadingState(false);
-                }
+                } finally { setLoadingState(false); }
             }
 
             function parseSheetData(csvText) {
-                // Remove potential Byte Order Mark (BOM) from the start of the file
-                if (csvText.charCodeAt(0) === 0xFEFF) {
-                    csvText = csvText.substring(1);
-                }
-
+                if (csvText.charCodeAt(0) === 0xFEFF) csvText = csvText.substring(1);
                 const lines = csvText.trim().split(/\r\n|\n/);
                 const config = {};
                 const dataRows = [];
-
                 const headerRowIndex = lines.findIndex(line => line.split(',')[0].trim().toLowerCase() === 'group');
-
-                if (headerRowIndex === -1) {
-                    throw new Error('Could not find the data header row starting with "Group". Please check your sheet format.');
-                }
-
-                // Process config lines (everything before the header)
+                if (headerRowIndex === -1) throw new Error('Could not find the data header row starting with "Group". Please check your sheet format.');
                 const configLines = lines.slice(0, headerRowIndex);
                 for (const line of configLines) {
-                    if (line.trim() === '') continue; // Skip blank lines
-                    const firstCommaIndex = line.indexOf(',');
-                    if (firstCommaIndex !== -1) {
-                        const key = line.substring(0, firstCommaIndex).trim().replace(/[^\x20-\x7E]/g, '');
-                        const value = line.substring(firstCommaIndex + 1).trim().replace(/^"|"$/g, '').replace(/[^\x20-\x7E]/g, '');
-                        if (key) {
-                            config[key] = value;
-                        }
+                    if (line.trim() === '') continue;
+                     const parts = line.split(',');
+                     if (parts.length >= 2) {
+                        const key = parts[0].trim().replace(/[^\x20-\x7E]/g, '');
+                        const value = parts[1].trim().replace(/^"|"$/g, '').replace(/[^\x20-\x7E]/g, '');
+                        if (key) { config[key] = value; }
                     }
                 }
-
-                // Process data rows (everything after the header)
                 const rawDataRows = lines.slice(headerRowIndex + 1);
                 for (const line of rawDataRows) {
-                    if (line.trim()) { // Only process non-empty lines
-                         dataRows.push(line.split(','));
-                    }
+                    if (line.trim()) dataRows.push(line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/));
                 }
-
-                // --- Validation ---
-                const requiredConfig = ['Test_Name', 'Test_Type', 'Control_Group_Name', 'Test_Group_Name', 'Expected_Control_Split', 'Guardrail_Threshold'];
-                requiredConfig.forEach(key => {
-                    if (!config[key]) throw new Error(`Missing required configuration parameter in sheet: ${key}`);
-                });
-                if (!['Performance Improvement', 'Technical Change'].includes(config.Test_Type)) {
-                     throw new Error(`Test_Type must be 'Performance Improvement' or 'Technical Change'. Value found: "${config.Test_Type}"`);
-                }
+                const requiredConfig = ['Test_Type', 'Control_Group_Name', 'Test_Group_Name', 'Expected_Control_Split', 'Guardrail_Threshold'];
+                requiredConfig.forEach(key => { if (!config[key]) throw new Error(`Missing required configuration parameter in sheet: ${key}`); });
+                if (!['Performance Improvement', 'Technical Change'].includes(config.Test_Type)) throw new Error(`Test_Type must be 'Performance Improvement' or 'Technical Change'. Value found: "${config.Test_Type}"`);
                 if (dataRows.length < 2) throw new Error('Could not find sufficient data rows in the sheet.');
-
-                // --- Data Structuring ---
                 const dataHeaders = ['Group', 'Opportunities', 'Requests', 'Bids', 'Impressions', 'Revenue'];
                 const controlRowRaw = dataRows.find(r => r[0].trim() === config.Control_Group_Name);
                 const treatmentRowRaw = dataRows.find(r => r[0].trim() === config.Test_Group_Name);
-
                 if (!controlRowRaw || !treatmentRowRaw) throw new Error('Could not find data rows matching Control_Group_Name and Test_Group_Name from configuration.');
-
                 const processRow = (row) => {
                     const obj = {};
                     dataHeaders.forEach((header, i) => {
-                        const cellValue = row[i] ? row[i].trim() : '';
-                        obj[header] = i > 0 ? parseFloat(cellValue.replace(/[^0-9.-]/g, '')) : cellValue;
-                        if (i > 0 && isNaN(obj[header])) throw new Error(`Invalid number for '${header}' in group '${row[0]}'.`);
+                        let cellValue = row[i] ? row[i].trim() : '';
+                        if (cellValue.startsWith('"') && cellValue.endsWith('"')) cellValue = cellValue.substring(1, cellValue.length - 1);
+                        if (i > 0) {
+                            const numericValue = parseFloat(cellValue.replace(/,/g, ''));
+                            obj[header] = numericValue;
+                            if (isNaN(numericValue)) throw new Error(`Invalid number for '${header}' in group '${row[0]}'. Original value was: '${row[i]}'.`);
+                        } else obj[header] = cellValue;
                     });
                     return obj;
                 };
-
-                return {
-                    config,
-                    controlData: processRow(controlRowRaw),
-                    treatmentData: processRow(treatmentRowRaw),
-                };
+                return { config, controlData: processRow(controlRowRaw), treatmentData: processRow(treatmentRowRaw) };
             }
 
             function runFullAnalysis(analysisData) {
                 displaySummary(analysisData.config);
-
                 const srmResult = performSRMCheck(analysisData);
                 displaySRMResult(srmResult);
-
                 const metrics = [
                     { name: 'RPO (Revenue per 1M Opps)', numerator: 'Revenue', denominator: 'Opportunities', multiplier: 1000000, isRate: false },
                     { name: 'RR (Revenue per 1M Reqs)', numerator: 'Revenue', denominator: 'Requests', multiplier: 1000000, isRate: false },
                     { name: 'Bid Rate', numerator: 'Bids', denominator: 'Requests', multiplier: 1, isRate: true },
                     { name: 'Fill Rate', numerator: 'Impressions', denominator: 'Opportunities', multiplier: 1, isRate: true },
                 ];
-
                 metrics.forEach(metric => {
                     const result = analyzeMetric(metric, analysisData);
                     displayMetricResult(result, analysisData.config);
                 });
             }
             
-            // --- Statistical Calculations ---
             function performSRMCheck({ config, controlData, treatmentData }) {
-                const controlOpps = controlData.Opportunities;
-                const treatmentOpps = treatmentData.Opportunities;
+                const controlOpps = controlData.Opportunities, treatmentOpps = treatmentData.Opportunities;
                 const totalOpps = controlOpps + treatmentOpps;
                 const expectedSplit = parseFloat(config.Expected_Control_Split) / 100;
-
-                const expectedControl = totalOpps * expectedSplit;
-                const expectedTreatment = totalOpps * (1 - expectedSplit);
-
+                const expectedControl = totalOpps * expectedSplit, expectedTreatment = totalOpps * (1 - expectedSplit);
                 const chiSquare = Math.pow(controlOpps - expectedControl, 2) / expectedControl + Math.pow(treatmentOpps - expectedTreatment, 2) / expectedTreatment;
-                const pValue = Math.exp(-0.5 * chiSquare); // Chi-squared p-value for 1 degree of freedom
-                
+                const pValue = Math.exp(-0.5 * chiSquare);
                 return { pValue, isMismatch: pValue < 0.05 };
             }
 
             function analyzeMetric(metric, { controlData, treatmentData }) {
-                const c_num = controlData[metric.numerator];
-                const c_den = controlData[metric.denominator];
-                const t_num = treatmentData[metric.numerator];
-                const t_den = treatmentData[metric.denominator];
-                
+                const c_num = controlData[metric.numerator], c_den = controlData[metric.denominator];
+                const t_num = treatmentData[metric.numerator], t_den = treatmentData[metric.denominator];
                 const controlVal = (c_den === 0) ? 0 : (c_num / c_den) * (metric.multiplier || 1);
                 const treatmentVal = (t_den === 0) ? 0 : (t_num / t_den) * (metric.multiplier || 1);
                 const lift = controlVal === 0 ? Infinity : (treatmentVal - controlVal) / controlVal;
-                
                 let pValue, ci;
-
-                if (metric.isRate) { // Two-proportion z-test for rates
-                    const p1 = (c_den === 0) ? 0 : c_num / c_den;
-                    const p2 = (t_den === 0) ? 0 : t_num / t_den;
+                if (metric.isRate) {
+                    const p1 = (c_den === 0) ? 0 : c_num / c_den, p2 = (t_den === 0) ? 0 : t_num / t_den;
                     const p_pooled = (c_den + t_den === 0) ? 0 : (c_num + t_num) / (c_den + t_den);
-                    const se = (p_pooled === 0 || p_pooled === 1) ? 0 : Math.sqrt(p_pooled * (1 - p_pooled) * (1/c_den + 1/t_den));
+                    const se = (p_pooled <= 0 || p_pooled >= 1) ? 0 : Math.sqrt(p_pooled * (1 - p_pooled) * (1/c_den + 1/t_den));
                     const zStat = se === 0 ? 0 : (p2 - p1) / se;
                     pValue = 2 * (1 - standardNormalCdf(Math.abs(zStat)));
-                    
                     const marginOfError = 1.96 * Math.sqrt(((p1 * (1 - p1)) / c_den) + ((p2 * (1 - p2)) / t_den));
                     ci = p1 === 0 ? [0,0] : [(p2 - p1 - marginOfError) / p1, (p2 - p1 + marginOfError) / p1];
-                } else { // Z-test for difference of ratios (Delta method approximation)
+                } else {
                     const se_control = (controlVal === 0 || c_num === 0) ? 0 : (controlVal / Math.sqrt(c_num));
                     const se_treatment = (treatmentVal === 0 || t_num === 0) ? 0 : (treatmentVal / Math.sqrt(t_num));
                     const se_diff = Math.sqrt(se_control*se_control + se_treatment*se_treatment);
@@ -245,33 +528,29 @@
                     const marginOfError = 1.96 * se_diff;
                     ci = controlVal === 0 ? [0,0] : [(treatmentVal - controlVal - marginOfError)/controlVal, (treatmentVal - controlVal + marginOfError)/controlVal];
                 }
-
-                return { name: metric.name, pValue, lift, ci, controlVal, treatmentVal };
+                return { name: metric.name, pValue, lift, ci, controlVal, treatmentVal, c_den, t_den };
             }
             
-            // --- Display & UI Functions ---
             function displaySummary(config) {
                 summaryCard.innerHTML = `
                     <h3 class="text-xl font-semibold text-white mb-4">Test Summary</h3>
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-sm">
-                        ${Object.entries(config).map(([key, value]) => `
-                            <div>
-                                <p class="text-gray-400">${key.replace(/_/g, ' ')}</p>
-                                <p class="font-semibold">${value}</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
+                        ${Object.entries(config).filter(([key]) => key !== 'Test_Name').map(([key, value]) => `
+                            <div><p class="text-gray-400">${key.replace(/_/g, ' ')}</p><p class="font-semibold">${value}</p></div>`).join('')}
+                    </div>`;
                 summaryCard.classList.remove('hidden');
             }
 
             function displaySRMResult({ pValue, isMismatch }) {
                 const color = isMismatch ? 'red' : 'green';
                 const conclusion = isMismatch ? 'FAIL: Significant Mismatch Detected' : 'PASS: No Significant Mismatch';
-                const text = isMismatch
-                    ? 'The actual traffic split significantly differs from the expected split. The test setup may be flawed, and results should be treated with extreme caution.'
-                    : 'The observed traffic split is consistent with the expected split. The experiment setup appears valid.';
+                const text = isMismatch ? 'The actual traffic split significantly differs from the expected split. The test setup may be flawed, and results should be treated with extreme caution.' : 'The observed traffic split is consistent with the expected split. The experiment setup appears valid.';
+                const srmExplanation = `<strong>Sample Ratio Mismatch (SRM) Check:</strong><br>This test verifies if the traffic was split between the control and treatment groups as expected. We use a Chi-Squared test to compare the observed user counts against the expected counts. A low p-value (less than 0.05) indicates a significant mismatch, which could mean the experiment setup is flawed and the results are unreliable.`;
                 srmResultContainer.innerHTML = `
+                    <div class="absolute top-4 right-4 info-button-container z-10">
+                        <button class="info-button w-6 h-6 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-400 cursor-pointer">?</button>
+                        <div class="tooltip">${srmExplanation}</div>
+                    </div>
                     <div class="border-l-4 border-${color}-500 pl-4">
                         <h3 class="text-xl font-semibold text-white">Sample Ratio Mismatch (SRM) Check</h3>
                         <p class="font-bold text-${color}-400 mt-1">${conclusion} (p=${pValue.toFixed(4)})</p>
@@ -285,38 +564,43 @@
                 const isSignificant = result.pValue < 0.05;
                 const liftPercentage = result.lift * 100;
                 const guardrailThresholdNum = parseFloat(Guardrail_Threshold);
-
-                let summary, conclusionColor;
-                
+                let summary, conclusionColor, borderColorClass, explanationText;
+                if (result.name.toLowerCase().includes('rate')) {
+                    explanationText = `<strong>Statistical Significance for Rates:</strong><br>For rate-based metrics like this, we use a two-proportion z-test. This compares the proportions (e.g., Bids/Requests) of the two groups to determine if the difference between them is statistically significant or likely due to random chance. A p-value below 0.05 suggests a real difference.`;
+                } else {
+                    explanationText = `<strong>Statistical Significance for Ratios:</strong><br>For ratio metrics like RPO or RR, we use a z-test. The variance of this ratio is estimated using the Delta method. This test helps determine if the observed difference in performance is a true effect or just random fluctuation. A p-value below 0.05 indicates a statistically significant result.`;
+                }
                 if (Test_Type === 'Performance Improvement') {
                     if (isSignificant && liftPercentage > 0) {
                         summary = `Statistically significant uplift detected. The treatment performed <strong class="text-white">${liftPercentage.toFixed(2)}%</strong> better than the control.`;
-                        conclusionColor = 'text-green-400';
+                        conclusionColor = 'text-green-400'; borderColorClass = 'border-green-500';
                     } else if (isSignificant && liftPercentage < 0) {
                         summary = `Statistically significant decrease detected. The treatment performed <strong class="text-white">${liftPercentage.toFixed(2)}%</strong> worse than the control.`;
-                        conclusionColor = 'text-red-400';
+                        conclusionColor = 'text-red-400'; borderColorClass = 'border-red-500';
                     } else {
-                        summary = `The observed lift of ${liftPercentage.toFixed(2)}% is not statistically significant (p=${result.pValue.toFixed(4)} > 0.05). This could be due to insufficient sample size, high variance in the data, or the absence of a real effect. We cannot conclude a real difference in performance.`;
-                        conclusionColor = 'text-yellow-400';
+                        const controlSampleSize = result.c_den, treatmentSampleSize = result.t_den, ciWidth = (result.ci[1] - result.ci[0]) * 100;
+                        if (controlSampleSize < 5000 || treatmentSampleSize < 5000) summary = `The observed lift of ${liftPercentage.toFixed(2)}% is not statistically significant. This is likely because the sample size for this metric is too small to reliably detect a change unless the effect is very large. Consider running the test for a longer period to gather more data.`;
+                        else if (Math.abs(liftPercentage) < 0.1) summary = `The result is not statistically significant, and the observed lift of ${liftPercentage.toFixed(2)}% is very close to zero. With a sufficient sample size, this strongly suggests that there is no meaningful difference in performance between the control and treatment groups for this metric.`;
+                        else if (ciWidth > 20 && result.name.toLowerCase().includes('rate')) summary = `The result is not statistically significant. The confidence interval for the lift is very wide ([${(result.ci[0]*100).toFixed(2)}%, ${(result.ci[1]*100).toFixed(2)}%]), suggesting high variance in the underlying data. This means the result is too noisy to make a conclusion, even with a large sample size.`;
+                        else summary = `The observed lift of ${liftPercentage.toFixed(2)}% is not statistically significant (p=${result.pValue.toFixed(4)} > 0.05). The current data is insufficient to conclude a real difference in performance. This could be because the true effect size is smaller than what can be detected with the current sample size and data variance.`;
+                        conclusionColor = 'text-yellow-400'; borderColorClass = 'border-yellow-500';
                     }
-                } else { // Technical Change (Guardrail)
+                } else {
                     const ciLowerBound = result.ci[0] * 100;
                     if (ciLowerBound >= guardrailThresholdNum) {
                         summary = `PASS: The change is safe. We are 95% confident that performance change is no worse than <strong class="text-white">${ciLowerBound.toFixed(2)}%</strong>, which is within the acceptable ${guardrailThresholdNum}% threshold.`;
-                        conclusionColor = 'text-green-400';
+                        conclusionColor = 'text-green-400'; borderColorClass = 'border-green-500';
                     } else {
                         summary = `FAIL: Potential harm detected. We cannot be 95% confident that the performance degradation is better than the <strong class="text-white">${guardrailThresholdNum}%</strong> threshold.`;
-                        conclusionColor = 'text-red-400';
+                        conclusionColor = 'text-red-400'; borderColorClass = 'border-red-500';
                     }
                 }
-
                 let formattedControlVal, formattedTreatmentVal;
                 const isCurrency = result.name.toLowerCase().includes('rpo') || result.name.toLowerCase().includes('rr');
                 const isRate = result.name.toLowerCase().includes('rate');
-
                 if (isCurrency) {
-                    formattedControlVal = `$${result.controlVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                    formattedTreatmentVal = `$${result.treatmentVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    formattedControlVal = result.controlVal.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+                    formattedTreatmentVal = result.treatmentVal.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
                 } else if (isRate) {
                     formattedControlVal = result.controlVal.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     formattedTreatmentVal = result.treatmentVal.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -324,36 +608,27 @@
                     formattedControlVal = result.controlVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     formattedTreatmentVal = result.treatmentVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 }
-                
                 const metricCard = document.createElement('div');
-                metricCard.className = 'main-card p-6 rounded-2xl';
+                metricCard.className = 'main-card p-6 rounded-2xl relative';
                 metricCard.innerHTML = `
-                    <h3 class="text-lg font-bold text-white">${result.name}</h3>
-                    <p class="mt-2 text-sm ${conclusionColor}">${summary}</p>
-                    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                        <div>
-                            <p class="text-xs text-gray-400">Control</p>
-                            <p class="text-xl font-bold">${formattedControlVal}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400">Treatment</p>
-                            <p class="text-xl font-bold">${formattedTreatmentVal}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400">Lift</p>
-                            <p class="text-xl font-bold ${liftPercentage > 0 ? 'text-green-400' : (liftPercentage < 0 ? 'text-red-400' : '')}">${liftPercentage.toFixed(2)}%</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400">P-Value</p>
-                            <p class="text-xl font-bold">${result.pValue.toFixed(4)}</p>
-                        </div>
+                    <div class="absolute top-4 right-4 info-button-container z-10">
+                        <button class="info-button w-6 h-6 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-400 cursor-pointer">?</button>
+                        <div class="tooltip">${explanationText}</div>
                     </div>
-                    <div class="mt-3 text-center text-xs text-gray-500">95% Confidence Interval for Lift: [${(result.ci[0]*100).toFixed(2)}%, ${(result.ci[1]*100).toFixed(2)}%]</div>
-                `;
+                    <div class="border-l-4 ${borderColorClass} pl-4">
+                        <h3 class="text-lg font-bold text-white">${result.name}</h3>
+                        <p class="mt-2 text-sm ${conclusionColor}">${summary}</p>
+                        <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div><p class="text-xs text-gray-400">Control</p><p class="text-xl font-bold">${formattedControlVal}</p></div>
+                            <div><p class="text-xs text-gray-400">Treatment</p><p class="text-xl font-bold">${formattedTreatmentVal}</p></div>
+                            <div><p class="text-xs text-gray-400">Lift</p><p class="text-xl font-bold ${liftPercentage > 0 ? 'text-green-400' : (liftPercentage < 0 ? 'text-red-400' : '')}">${liftPercentage.toFixed(2)}%</p></div>
+                            <div><p class="text-xs text-gray-400">P-Value</p><p class="text-xl font-bold">${result.pValue.toFixed(4)}</p></div>
+                        </div>
+                        <div class="mt-3 text-center text-xs text-gray-500">95% Confidence Interval for Lift: [${(result.ci[0]*100).toFixed(2)}%, ${(result.ci[1]*100).toFixed(2)}%]</div>
+                    </div>`;
                 metricsResultsContainer.appendChild(metricCard);
             }
 
-            // --- Utility Functions ---
             function setLoadingState(isLoading) {
                 analyzeBtn.disabled = isLoading;
                 if(isLoading) {
@@ -382,6 +657,9 @@
                 let prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
                 return x > 0 ? 1 - prob : prob;
             }
+
+            // --- Initializer call ---
+            init();
         });
     </script>
 </body>

@@ -121,7 +121,7 @@
                      <!-- DC Regions -->
                       <div>
                         <div class="flex justify-between items-center mb-3">
-                            <h3 class="text-xl font-bold text-white">2. Select DC Regions</h3>
+                            <h3 class="text-xl font-bold text-white">2. Select DC Regions (Optional)</h3>
                             <button id="select-all-regions" data-target="region" class="select-all-btn">Select All</button>
                         </div>
                         <div id="bq-regions" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
@@ -129,10 +129,16 @@
                      <!-- Date & Time -->
                       <div>
                         <h3 class="text-xl font-bold text-white mb-3">3. Select Date & Time (Israel Time)</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <input type="date" id="bq-date" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3">
-                            <input type="time" id="bq-start-time" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3">
-                            <input type="time" id="bq-end-time" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3">
+                        <div class="mb-3">
+                             <input type="date" id="bq-date" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3 text-white w-full sm:w-auto">
+                        </div>
+                        <label class="flex items-center space-x-2 mb-3 text-sm text-gray-300">
+                            <input type="checkbox" id="bq-time-filter-enabled" checked class="form-checkbox h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 rounded">
+                            <span>Filter by time range (optional)</span>
+                        </label>
+                        <div id="bq-time-inputs" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <input type="time" id="bq-start-time" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3 text-white">
+                            <input type="time" id="bq-end-time" class="bg-gray-800 border-2 border-gray-600 rounded-lg p-3 text-white">
                         </div>
                      </div>
                      <!-- Group By & Filters -->
@@ -211,6 +217,8 @@
             const bqQueryOutputContainer = document.getElementById('bq-query-output-container');
             const bqQueryOutput = document.getElementById('bq-query-output');
             const copyQueryBtn = document.getElementById('copyQueryBtn');
+            const bqTimeFilterEnabled = document.getElementById('bq-time-filter-enabled');
+            const bqTimeInputsContainer = document.getElementById('bq-time-inputs');
             
             // --- BQ Builder Data ---
             const bqOrgs = {
@@ -221,6 +229,7 @@
             };
             const bqRegions = ['us-west-2', 'us-east-1', 'eu-west-1'];
             const bqGroupByOptions = {
+                mv: { select: 'mv', filterColumn: 'mv', type: 'outer' },
                 subid: { select: 'subid', filterColumn: 'subid', type: 'inner' },
                 rtb_connection_type: { select: 'conn.type AS rtb_connection_type', filterColumn: 'conn.type', type: 'outer' },
                 org: { select: 'adsmanager.org', filterColumn: 'adsmanager.org', type: 'outer' },
@@ -263,6 +272,26 @@
                 setupSelectAllButton('select-all-regions');
                 setupSelectAllButton('select-all-groupby');
                 setupSelectAllButton('select-all-metrics');
+
+                // Time filter toggle
+                bqTimeFilterEnabled.addEventListener('change', () => {
+                    bqTimeInputsContainer.style.display = bqTimeFilterEnabled.checked ? 'grid' : 'none';
+                });
+                 // Add event listeners for new operator dropdowns
+                document.querySelectorAll('.filter-operator').forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const targetInputId = e.target.dataset.targetFilter;
+                        const targetInput = document.getElementById(targetInputId);
+                        if (e.target.value === 'IS NULL' || e.target.value === 'IS NOT NULL') {
+                            targetInput.disabled = true;
+                            targetInput.value = '';
+                            targetInput.classList.add('bg-gray-700', 'cursor-not-allowed');
+                        } else {
+                            targetInput.disabled = false;
+                            targetInput.classList.remove('bg-gray-700', 'cursor-not-allowed');
+                        }
+                    });
+                });
             }
 
             function createCheckbox(label, name, value) {
@@ -275,12 +304,25 @@
             }
              function createGroupByRow(key) {
                 return `
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
                         <label class="flex items-center space-x-2 col-span-1">
                             <input type="checkbox" name="groupby" value="${key}" class="form-checkbox h-4 w-4 bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500 rounded">
                             <span class="font-semibold">${key}</span>
                         </label>
-                        <input type="text" id="filter-${key}" placeholder="e.g., value1,value2" class="col-span-2 w-full bg-gray-800 border-2 border-gray-600 rounded-lg p-2 text-sm text-white focus:ring-blue-500 focus:border-blue-500 transition-all">
+                        <select id="operator-${key}" data-target-filter="filter-${key}" class="filter-operator col-span-2 md:col-span-1 bg-gray-800 border-2 border-gray-600 rounded-lg p-2 text-sm text-white focus:ring-blue-500 focus:border-blue-500">
+                            <option value="IN">IN</option>
+                            <option value="NOT IN">NOT IN</option>
+                            <option value="=">=</option>
+                            <option value="!=">!=</option>
+                            <option value="LIKE">LIKE</option>
+                            <option value=">">&gt;</option>
+                            <option value="<">&lt;</option>
+                            <option value=">=">&gt;=</option>
+                            <option value="<=">&lt;=</option>
+                            <option value="IS NULL">IS NULL</option>
+                            <option value="IS NOT NULL">IS NOT NULL</option>
+                        </select>
+                        <input type="text" id="filter-${key}" placeholder="e.g., value1,value2 for IN" class="col-span-3 w-full bg-gray-800 border-2 border-gray-600 rounded-lg p-2 text-sm text-white focus:ring-blue-500 focus:border-blue-500 transition-all">
                     </div>
                 `;
             }
@@ -322,44 +364,80 @@
                 const selectedGroupBy = Array.from(document.querySelectorAll('input[name="groupby"]:checked')).map(el => el.value);
                 const selectedMetrics = Array.from(document.querySelectorAll('input[name="metric"]:checked')).map(el => el.value);
 
-                if (selectedOrgs.length === 0 || selectedRegions.length === 0 || selectedMetrics.length === 0) {
-                    alert('Please select at least one Org, one DC Region, and one Metric.');
+                if (selectedOrgs.length === 0 || selectedMetrics.length === 0) {
+                    alert('Please select at least one Org and one Metric.');
                     return;
                 }
 
-                // Date & Time processing (Israel to UTC)
-                const date = bqDateInput.value; const startTime = bqStartTimeInput.value; const endTime = bqEndTimeInput.value;
-                const startDateTimeLocal = new Date(`${date}T${startTime}:00+03:00`); // Assuming IDT (UTC+3)
-                const endDateTimeLocal = new Date(`${date}T${endTime}:00+03:00`);
-                const utcStart = startDateTimeLocal.toISOString().replace('T', ' ').substring(0, 19);
-                const utcEnd = endDateTimeLocal.toISOString().replace('T', ' ').substring(0, 19);
-                const tableDate = startDateTimeLocal.toISOString().substring(0, 10).replace(/-/g, '');
+                const date = bqDateInput.value;
+                if (!date) {
+                    alert('Please select a date.');
+                    return;
+                }
+                const tableDate = new Date(`${date}T12:00:00Z`).toISOString().substring(0, 10).replace(/-/g, '');
 
                 // Filter processing
-                const innerFilters = [`dc_region IN (${selectedRegions.map(r => `'${r}'`).join(',')})`];
+                const subQueryWhereClauses = [];
+
+                const startTime = bqStartTimeInput.value;
+                const endTime = bqEndTimeInput.value;
+                if (bqTimeFilterEnabled.checked && startTime && endTime) {
+                    const startDateTimeLocal = new Date(`${date}T${startTime}:00+03:00`); 
+                    const endDateTimeLocal = new Date(`${date}T${endTime}:00+03:00`);
+                    const utcStart = startDateTimeLocal.toISOString().replace('T', ' ').substring(0, 19);
+                    const utcEnd = endDateTimeLocal.toISOString().replace('T', ' ').substring(0, 19);
+                    subQueryWhereClauses.push(`timestamp BETWEEN "${utcStart}" AND "${utcEnd}"`);
+                }
+
+                if (selectedRegions.length > 0) {
+                    subQueryWhereClauses.push(`dc_region IN (${selectedRegions.map(r => `'${r}'`).join(',')})`);
+                }
+
                 const outerFilters = [];
                 Object.keys(bqGroupByOptions).forEach(key => {
-                    const filterValues = document.getElementById(`filter-${key}`).value.trim();
-                    if (filterValues) {
-                        const values = filterValues.split(',').map(v => `'${v.trim()}'`).join(',');
+                    const filterValue = document.getElementById(`filter-${key}`).value.trim();
+                    const operator = document.getElementById(`operator-${key}`).value;
+
+                     if (filterValue || operator === 'IS NULL' || operator === 'IS NOT NULL') {
                         const option = bqGroupByOptions[key];
-                        const clause = `${option.filterColumn} IN (${values})`;
-                        if (option.type === 'inner') innerFilters.push(clause); else outerFilters.push(clause);
+                        let clause = '';
+
+                        if (operator === 'IS NULL' || operator === 'IS NOT NULL') {
+                            clause = `${option.filterColumn} ${operator}`;
+                        } else if (filterValue) {
+                            const numericOperators = ['>', '<', '>=', '<='];
+                            const isNumeric = !isNaN(filterValue) && numericOperators.includes(operator);
+
+                            if (operator === 'IN' || operator === 'NOT IN') {
+                                const values = filterValue.split(',').map(v => `'${v.trim()}'`).join(',');
+                                clause = `${option.filterColumn} ${operator} (${values})`;
+                            } else {
+                                const value = isNumeric ? filterValue : `'${filterValue}'`;
+                                clause = `${option.filterColumn} ${operator} ${value}`;
+                            }
+                        }
+                        
+                        if (clause) {
+                            if (option.type === 'inner') subQueryWhereClauses.push(clause); 
+                            else outerFilters.push(clause);
+                        }
                     }
                 });
 
                 // Build query parts
-                const groupingSelects = selectedGroupBy.map(key => bqGroupByOptions[key].select);
+                const groupingSelects = selectedGroupBy
+                    .filter(key => key !== 'mv')
+                    .map(key => bqGroupByOptions[key].select);
+
                 const metricSelects = selectedMetrics.map(key => bqMetrics[key]);
                 const selectClause = ['SPLIT(module_version, "~")[OFFSET(0)] AS mv', ...groupingSelects, ...metricSelects].join(',\n  ');
                 const groupByClause = 'GROUP BY ALL';
+                const subQueryWhereClauseString = subQueryWhereClauses.length > 0 ? `\nWHERE ${subQueryWhereClauses.join('\n  AND ')}` : '';
 
                 const subQueryTemplate = (orgId) => `
 SELECT
     subid, module_version, r3, rtb_conn_id, bas, env, supply_org, org, bl0_report, sample_rate, step, timestamp, dc_region, action, category, errorcode, adsourcerate, cost, param2, fc, adtype
-FROM \`streamrail.${orgId}.adsmanager_${tableDate}\`
-WHERE timestamp BETWEEN "${utcStart}" AND "${utcEnd}"
-  AND ${innerFilters.join('\n  AND ')}`;
+FROM \`streamrail.${orgId}.adsmanager_${tableDate}\`${subQueryWhereClauseString}`;
                 
                 const unionAll = selectedOrgs.map(orgId => subQueryTemplate(orgId)).join('\n\nUNION ALL\n');
 
@@ -495,24 +573,39 @@ ${groupByClause};`;
             }
             
             function performSRMCheck({ config, controlData, treatmentData }) {
-                const controlOpps = controlData.Opportunities, treatmentOpps = treatmentData.Opportunities;
+                const controlOpps = controlData.Opportunities;
+                const treatmentOpps = treatmentData.Opportunities;
                 const totalOpps = controlOpps + treatmentOpps;
                 const expectedSplit = parseFloat(config.Expected_Control_Split) / 100;
-                const expectedControl = totalOpps * expectedSplit, expectedTreatment = totalOpps * (1 - expectedSplit);
+                const expectedControl = totalOpps * expectedSplit;
+                const expectedTreatment = totalOpps * (1 - expectedSplit);
                 const chiSquare = Math.pow(controlOpps - expectedControl, 2) / expectedControl + Math.pow(treatmentOpps - expectedTreatment, 2) / expectedTreatment;
                 const pValue = Math.exp(-0.5 * chiSquare);
-                return { pValue, isMismatch: pValue < 0.05 };
+                
+                return { 
+                    pValue, 
+                    isMismatch: pValue < 0.05,
+                    controlOpps,
+                    treatmentOpps,
+                    totalOpps,
+                    expectedControl,
+                    expectedTreatment,
+                    expectedSplit
+                };
             }
 
             function analyzeMetric(metric, { controlData, treatmentData }) {
-                const c_num = controlData[metric.numerator], c_den = controlData[metric.denominator];
-                const t_num = treatmentData[metric.numerator], t_den = treatmentData[metric.denominator];
+                const c_num = controlData[metric.numerator];
+                const c_den = controlData[metric.denominator];
+                const t_num = treatmentData[metric.numerator];
+                const t_den = treatmentData[metric.denominator];
                 const controlVal = (c_den === 0) ? 0 : (c_num / c_den) * (metric.multiplier || 1);
                 const treatmentVal = (t_den === 0) ? 0 : (t_num / t_den) * (metric.multiplier || 1);
                 const lift = controlVal === 0 ? Infinity : (treatmentVal - controlVal) / controlVal;
                 let pValue, ci;
                 if (metric.isRate) {
-                    const p1 = (c_den === 0) ? 0 : c_num / c_den, p2 = (t_den === 0) ? 0 : t_num / t_den;
+                    const p1 = (c_den === 0) ? 0 : c_num / c_den;
+                    const p2 = (t_den === 0) ? 0 : t_num / t_den;
                     const p_pooled = (c_den + t_den === 0) ? 0 : (c_num + t_num) / (c_den + t_den);
                     const se = (p_pooled <= 0 || p_pooled >= 1) ? 0 : Math.sqrt(p_pooled * (1 - p_pooled) * (1/c_den + 1/t_den));
                     const zStat = se === 0 ? 0 : (p2 - p1) / se;
@@ -528,7 +621,22 @@ ${groupByClause};`;
                     const marginOfError = 1.96 * se_diff;
                     ci = controlVal === 0 ? [0,0] : [(treatmentVal - controlVal - marginOfError)/controlVal, (treatmentVal - controlVal + marginOfError)/controlVal];
                 }
-                return { name: metric.name, pValue, lift, ci, controlVal, treatmentVal, c_den, t_den };
+                return { 
+                    name: metric.name, 
+                    pValue, 
+                    lift, 
+                    ci, 
+                    controlVal, 
+                    treatmentVal, 
+                    c_den, 
+                    t_den,
+                    c_num,
+                    t_num,
+                    numerator: metric.numerator,
+                    denominator: metric.denominator,
+                    isRate: metric.isRate,
+                    multiplier: metric.multiplier || 1
+                };
             }
             
             function displaySummary(config) {
@@ -541,11 +649,25 @@ ${groupByClause};`;
                 summaryCard.classList.remove('hidden');
             }
 
-            function displaySRMResult({ pValue, isMismatch }) {
+            function displaySRMResult({ pValue, isMismatch, controlOpps, treatmentOpps, totalOpps, expectedControl, expectedTreatment, expectedSplit }) {
                 const color = isMismatch ? 'red' : 'green';
                 const conclusion = isMismatch ? 'FAIL: Significant Mismatch Detected' : 'PASS: No Significant Mismatch';
                 const text = isMismatch ? 'The actual traffic split significantly differs from the expected split. The test setup may be flawed, and results should be treated with extreme caution.' : 'The observed traffic split is consistent with the expected split. The experiment setup appears valid.';
-                const srmExplanation = `<strong>Sample Ratio Mismatch (SRM) Check:</strong><br>This test verifies if the traffic was split between the control and treatment groups as expected. We use a Chi-Squared test to compare the observed user counts against the expected counts. A low p-value (less than 0.05) indicates a significant mismatch, which could mean the experiment setup is flawed and the results are unreliable.`;
+                
+                const observedSplitControl = (controlOpps / totalOpps * 100).toFixed(2);
+                const expectedSplitControl = (expectedSplit * 100).toFixed(2);
+
+                const srmExplanation = `
+                    <strong>SRM Calculation (Chi-Squared):</strong><br>
+                    - <strong>Total Opps:</strong> ${totalOpps.toLocaleString()}<br>
+                    - <strong>Expected Split:</strong> ${expectedSplitControl}% / ${(100 - expectedSplitControl).toFixed(2)}%<br>
+                    - <strong>Expected Control:</strong> ${Math.round(expectedControl).toLocaleString()}<br>
+                    - <strong>Observed Control:</strong> ${controlOpps.toLocaleString()}<br>
+                    - <strong>Observed Split:</strong> ${observedSplitControl}%<br>
+                    <br>
+                    A p-value below 0.05 suggests the deviation is not due to random chance, indicating a potential issue. Your p-value is <strong>${pValue.toFixed(4)}</strong>.
+                `;
+
                 srmResultContainer.innerHTML = `
                     <div class="absolute top-4 right-4 info-button-container z-10">
                         <button class="info-button w-6 h-6 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-400 cursor-pointer">?</button>
@@ -565,11 +687,30 @@ ${groupByClause};`;
                 const liftPercentage = result.lift * 100;
                 const guardrailThresholdNum = parseFloat(Guardrail_Threshold);
                 let summary, conclusionColor, borderColorClass, explanationText;
-                if (result.name.toLowerCase().includes('rate')) {
-                    explanationText = `<strong>Statistical Significance for Rates:</strong><br>For rate-based metrics like this, we use a two-proportion z-test. This compares the proportions (e.g., Bids/Requests) of the two groups to determine if the difference between them is statistically significant or likely due to random chance. A p-value below 0.05 suggests a real difference.`;
+
+                const f_c_num = result.c_num.toLocaleString(undefined, {maximumFractionDigits: 2});
+                const f_c_den = result.c_den.toLocaleString();
+                const f_t_num = result.t_num.toLocaleString(undefined, {maximumFractionDigits: 2});
+                const f_t_den = result.t_den.toLocaleString();
+
+                if (result.isRate) {
+                    const f_controlVal = (result.controlVal / result.multiplier).toLocaleString(undefined, {style: 'percent', minimumFractionDigits: 4});
+                    const f_treatmentVal = (result.treatmentVal / result.multiplier).toLocaleString(undefined, {style: 'percent', minimumFractionDigits: 4});
+                    explanationText = `<strong>Rate Calculation (Z-Test):</strong><br>
+                        - <strong>Control:</strong> (${f_c_num} ${result.numerator} / ${f_c_den} ${result.denominator}) = <strong>${f_controlVal}</strong><br>
+                        - <strong>Treatment:</strong> (${f_t_num} ${result.numerator} / ${f_t_den} ${result.denominator}) = <strong>${f_treatmentVal}</strong><br>
+                        <br>
+                        A p-value below 0.05 suggests a real difference. Your p-value is <strong>${result.pValue.toFixed(4)}</strong>.`;
                 } else {
-                    explanationText = `<strong>Statistical Significance for Ratios:</strong><br>For ratio metrics like RPO or RR, we use a z-test. The variance of this ratio is estimated using the Delta method. This test helps determine if the observed difference in performance is a true effect or just random fluctuation. A p-value below 0.05 indicates a statistically significant result.`;
+                    const f_controlVal = result.controlVal.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+                    const f_treatmentVal = result.treatmentVal.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+                    explanationText = `<strong>Ratio Calculation (Z-Test):</strong><br>
+                        - <strong>Control:</strong> (${f_c_num} ${result.numerator} / ${f_c_den} ${result.denominator}) * ${result.multiplier.toLocaleString()} = <strong>${f_controlVal}</strong><br>
+                        - <strong>Treatment:</strong> (${f_t_num} ${result.numerator} / ${f_t_den} ${result.denominator}) * ${result.multiplier.toLocaleString()} = <strong>${f_treatmentVal}</strong><br>
+                        <br>
+                        A p-value below 0.05 suggests a real effect. Your p-value is <strong>${result.pValue.toFixed(4)}</strong>.`;
                 }
+
                 if (Test_Type === 'Performance Improvement') {
                     if (isSignificant && liftPercentage > 0) {
                         summary = `Statistically significant uplift detected. The treatment performed <strong class="text-white">${liftPercentage.toFixed(2)}%</strong> better than the control.`;
